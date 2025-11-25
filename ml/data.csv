@@ -1,0 +1,6 @@
+date,subject,prev_hours,new_hours,completion,reward,state,action
+2025-11-23,ML,1.3,1.3,half,0.0,1,same
+2025-11-23,CAO,2.21,2.21,half,0.0,1,same
+2025-11-23,CN,1.75,1.75,half,0.0,1,same
+2025-11-23,IP,2.21,2.21,half,0.0,1,same
+2025-11-23,SE,2.21,2.21,half,0.0,1,same
