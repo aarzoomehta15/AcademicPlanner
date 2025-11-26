@@ -21,8 +21,7 @@ def init_db():
     from modules.users_db import User
     from modules.subjects_db import SubjectsDB
     from modules.attendance_db import AttendanceDB
-    from modules.timetable_db import TimetableDB
+    #from modules.timetable_db import TimetableDB
     from modules.goals_db import GoalsDB, SubjectGoalDB
-    from modules.progress_db import ProgressDB
     
     Base.metadata.create_all(bind=engine)

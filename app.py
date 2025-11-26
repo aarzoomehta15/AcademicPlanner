@@ -8,8 +8,6 @@ from modules.users_db import UsersDB
 from modules.subjects_db import SubjectsDB
 from modules.goals_db import GoalsHelper
 from modules.attendance_db import AttendanceDB
-# TimetableDB import removed
-from modules.progress_db import ProgressHelper
 from modules.planner_logic import PlannerLogic
 
 # Global Configuration
@@ -526,7 +524,7 @@ class PlannerPage(ctk.CTkFrame):
         # Note: We assume 4 slots occupied for now, or fetch from timetable
         try:
             # Force refresh db helpers inside logic
-            plan = self.logic.generate_daily_plan(subjects, class_slots_today=4)
+            plan = self.logic.generate_daily_plan(subjects, class_slots_today=5)
         except Exception as e:
             ctk.CTkLabel(self.results_frame, text=f"Error generating plan: {str(e)}", text_color="red").pack()
             return

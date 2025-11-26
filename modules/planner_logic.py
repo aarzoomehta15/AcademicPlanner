@@ -14,7 +14,7 @@ class PlannerLogic:
         self.slot_length_min = 50
         self.start_time = time(8, 0)
 
-    def estimate_available_study_hours(self, total_wake_hours=16.0, class_slots_today=4, buffer_hours=3.0):
+    def estimate_available_study_hours(self, total_wake_hours=16.0, class_slots_today=5, buffer_hours=6.5):
         class_time = (class_slots_today * self.slot_length_min) / 60.0
         avail = total_wake_hours - class_time - buffer_hours
         return round(max(2.0, avail), 2)
