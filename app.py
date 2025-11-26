@@ -8,7 +8,7 @@ from modules.users_db import UsersDB
 from modules.subjects_db import SubjectsDB
 from modules.goals_db import GoalsHelper
 from modules.attendance_db import AttendanceDB
-from modules.timetable_db import TimetableDB
+# TimetableDB import removed
 from modules.progress_db import ProgressHelper
 from modules.planner_logic import PlannerLogic
 
@@ -62,10 +62,6 @@ class AcademicMentorApp(ctk.CTk):
         self.switch_frame(SignupFrame)
 
     def show_main_app(self):
-        # Pass app=self explicitly if the Frame expects it, 
-        # OR update Frame to use master as app.
-        # Based on the error, MainAppFrame expects 'app'.
-        # We will update MainAppFrame to accept (master, user) and set self.app = master
         self.switch_frame(MainAppFrame, user=self.current_user)
 
     def logout(self):
@@ -178,11 +174,11 @@ class MainAppFrame(ctk.CTkFrame):
                      text_color="gray").pack(pady=(0, 30))
 
         self.buttons = {}
-        # Navigation Buttons (Removed To-Do List)
+        # Navigation Buttons
         self.add_sidebar_btn("Dashboard", DashboardPage)
         self.add_sidebar_btn("Goals & Subjects", GoalsPage)
         self.add_sidebar_btn("Attendance", AttendancePage)
-        self.add_sidebar_btn("Timetable", SettingsPage)
+        # Timetable button removed
         self.add_sidebar_btn("ML Planner", PlannerPage)
 
         # Logout
@@ -241,11 +237,13 @@ class DashboardPage(ctk.CTkFrame):
         stats_frame = ctk.CTkFrame(self, fg_color="transparent")
         stats_frame.pack(fill="x")
 
-        # 1. Attendance Stat
-        att_data = self.att_db.get_subject_attendance(user["id"])
-        total_c = sum(x[2] for x in att_data)
-        total_p = sum(x[1] for x in att_data)
-        att_pct = int((total_p / total_c) * 100) if total_c else 0
+        # 1. Attendance Stat (Updated for Manual Percentage)
+        att_data = self.att_db.get_attendance_percent(user["id"])
+        if att_data:
+            # Average of all subject percentages
+            att_pct = int(sum(att_data.values()) / len(att_data))
+        else:
+            att_pct = 0
         
         self.create_card(stats_frame, "Attendance", f"{att_pct}%", "#E3F2FD", "#1565C0")
 
@@ -420,7 +418,7 @@ class AttendancePage(ctk.CTkFrame):
                          text_color="red").pack(pady=20)
             return
 
-        # Controls
+        # Controls (Updated for Manual Entry)
         ctrl_frame = ctk.CTkFrame(self, fg_color="#F8F9FA")
         ctrl_frame.pack(fill="x", pady=10)
 
@@ -428,117 +426,54 @@ class AttendancePage(ctk.CTkFrame):
         self.sub_menu = ctk.CTkComboBox(ctrl_frame, values=subjects, width=200)
         self.sub_menu.pack(side="left", padx=10)
 
-        ctk.CTkButton(ctrl_frame, text="Mark Present", fg_color="#4CAF50", width=120,
-                      command=lambda: self.mark("P")).pack(side="left", padx=10)
-        
-        ctk.CTkButton(ctrl_frame, text="Mark Absent", fg_color="#F44336", width=120,
-                      command=lambda: self.mark("A")).pack(side="left", padx=10)
+        ctk.CTkLabel(ctrl_frame, text="Current %:").pack(side="left", padx=10)
+        self.pct_entry = ctk.CTkEntry(ctrl_frame, placeholder_text="85", width=60)
+        self.pct_entry.pack(side="left", padx=5)
+
+        ctk.CTkButton(ctrl_frame, text="Update", fg_color="#4CAF50", width=100,
+                      command=self.update_attendance).pack(side="left", padx=15)
 
         # Stats Display
         self.stats_frame = ctk.CTkScrollableFrame(self, fg_color="white")
         self.stats_frame.pack(fill="both", expand=True, pady=10)
         self.refresh_stats()
 
-    def mark(self, status):
-        date = datetime.today().strftime("%Y-%m-%d")
+    def update_attendance(self):
         subj = self.sub_menu.get()
-        self.att_db.set_attendance(self.user["id"], date, subj, status)
-        self.refresh_stats()
+        try:
+            val = float(self.pct_entry.get())
+            if 0 <= val <= 100:
+                self.att_db.set_attendance_percentage(self.user["id"], subj, val)
+                self.refresh_stats()
+                self.pct_entry.delete(0, "end")
+            else:
+                messagebox.showwarning("Invalid Input", "Percentage must be between 0 and 100.")
+        except ValueError:
+            messagebox.showerror("Error", "Please enter a valid number.")
 
     def refresh_stats(self):
         for w in self.stats_frame.winfo_children(): w.destroy()
         
-        data = self.att_db.get_subject_attendance(self.user["id"])
+        # Now returns {Subject: Percentage}
+        data = self.att_db.get_attendance_percent(self.user["id"])
+        
         if not data:
-            ctk.CTkLabel(self.stats_frame, text="No attendance records yet.").pack(pady=20)
+            ctk.CTkLabel(self.stats_frame, text="No attendance records updated yet.").pack(pady=20)
             return
 
         ctk.CTkLabel(self.stats_frame, text="Current Attendance Status:", font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=10, padx=10)
 
-        for subj, p, t in data:
-            pct = int((p/t)*100)
+        for subj, pct in data.items():
             color = "#4CAF50" if pct >= 75 else "#F44336"
             
             row = ctk.CTkFrame(self.stats_frame, fg_color="#F1F3F5")
             row.pack(fill="x", pady=5, padx=5)
             
             ctk.CTkLabel(row, text=subj, font=("Segoe UI", 14, "bold"), width=150, anchor="w").pack(side="left", padx=10)
-            ctk.CTkLabel(row, text=f"{p}/{t} classes", width=100).pack(side="left")
             ctk.CTkLabel(row, text=f"{pct}%", text_color=color, font=("Segoe UI", 14, "bold")).pack(side="right", padx=20)
 
 
-class SettingsPage(ctk.CTkFrame):
-    # Simple Timetable Grid
-    DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    SLOTS = ["08:00", "09:00", "10:00", "11:00", "12:00", "01:00", "02:00", "03:00"]
-
-    def __init__(self, master, app, user):
-        super().__init__(master)
-        self.configure(fg_color="white")
-        self.user = user
-        self.tt_db = TimetableDB()
-
-        ctk.CTkLabel(self, text="Weekly Timetable", font=("Segoe UI", 22, "bold"), 
-                     text_color=app.dark_text).pack(anchor="w", pady=10)
-        
-        ctk.CTkLabel(self, text="Click a cell to assign a subject (helps calculate free time)", 
-                     text_color="gray").pack(anchor="w", pady=(0, 10))
-
-        self.grid_frame = ctk.CTkScrollableFrame(self, fg_color="white")
-        self.grid_frame.pack(fill="both", expand=True)
-
-        # Headers
-        ctk.CTkLabel(self.grid_frame, text="Time", font=("Segoe UI", 12, "bold")).grid(row=0, column=0, padx=5, pady=5)
-        for i, day in enumerate(self.DAYS):
-            ctk.CTkLabel(self.grid_frame, text=day, font=("Segoe UI", 12, "bold")).grid(row=0, column=i+1, padx=5, pady=5)
-
-        # Grid Buttons
-        self.cells = {}
-        for r, time_slot in enumerate(self.SLOTS):
-            ctk.CTkLabel(self.grid_frame, text=time_slot).grid(row=r+1, column=0, padx=5, pady=5)
-            for c in range(len(self.DAYS)):
-                btn = ctk.CTkButton(self.grid_frame, text="", width=80, height=30, 
-                                    fg_color="#F1F3F5", text_color="black", hover_color="#E3F2FD",
-                                    command=lambda d=c, s=r: self.edit_slot(d, s))
-                btn.grid(row=r+1, column=c+1, padx=2, pady=2)
-                self.cells[(c, r)] = btn
-        
-        self.refresh_grid()
-
-    def edit_slot(self, day_idx, slot_idx):
-        # Ideally open a popup to select subject. Simple toggle for now to show occupied.
-        # In full version, use a CTkToplevel with a Combobox of subjects.
-        dialog = ctk.CTkToplevel(self)
-        dialog.geometry("300x150")
-        dialog.title("Edit Slot")
-        
-        ctk.CTkLabel(dialog, text="Enter Subject:").pack(pady=10)
-        entry = ctk.CTkEntry(dialog)
-        entry.pack(pady=5)
-        
-        def save():
-            val = entry.get()
-            if val:
-                self.tt_db.set_slot(self.user["id"], day_idx, slot_idx, val, "Lec")
-            else:
-                # Clear slot
-                self.tt_db.set_slot(self.user["id"], day_idx, slot_idx, None, None)
-            self.refresh_grid()
-            dialog.destroy()
-            
-        ctk.CTkButton(dialog, text="Save", command=save).pack(pady=10)
-
-    def refresh_grid(self):
-        # Reset
-        for btn in self.cells.values(): btn.configure(text="", fg_color="#F1F3F5")
-        
-        # Load
-        for day_idx in range(len(self.DAYS)):
-            slots = self.tt_db.get_slots_for_weekday(self.user["id"], day_idx)
-            for slot_idx, (subj, _) in slots.items():
-                if subj:
-                    if (day_idx, slot_idx) in self.cells:
-                        self.cells[(day_idx, slot_idx)].configure(text=subj, fg_color="#BBDEFB")
+# SettingsPage (Timetable) removed
 
 
 class PlannerPage(ctk.CTkFrame):
