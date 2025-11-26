@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String
 from db.session import Base, get_session
 
-
 class TimetableDB(Base):
     __tablename__ = "timetable"
 
@@ -13,7 +12,11 @@ class TimetableDB(Base):
     class_type = Column(String, nullable=True)
 
     def __init__(self):
-        Base.metadata.create_all(bind=get_session().get_bind())
+        session = get_session()
+        try:
+            Base.metadata.create_all(bind=session.get_bind())
+        finally:
+            session.close()
 
     def set_slot(self, user_id, weekday, slot, subject, class_type):
         session = get_session()
@@ -26,15 +29,13 @@ class TimetableDB(Base):
                 row.subject = subject
                 row.class_type = class_type
             else:
-                row = TimetableDB()
-                row.user_id = user_id
-                row.weekday = weekday
-                row.slot = slot
-                row.subject = subject
-                row.class_type = class_type
+                row = TimetableDB(user_id=user_id, weekday=weekday, slot=slot, subject=subject, class_type=class_type)
                 session.add(row)
 
             session.commit()
+        except:
+            session.rollback()
+            raise
         finally:
             session.close()
 

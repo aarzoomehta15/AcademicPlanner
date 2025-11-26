@@ -1,74 +1,36 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Float
 from db.session import Base, get_session
 
-class AttendanceDB(Base):
-    __tablename__ = "attendance"
-
+# New Table for simple Percentage Storage
+class ManualAttendance(Base):
+    __tablename__ = "manual_attendance"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False)
-    date = Column(String, nullable=False)
     subject = Column(String, nullable=False)
-    status = Column(String, nullable=False)  # "P" / "A"
+    percentage = Column(Float, nullable=False, default=0.0)
 
-    def __init__(self):
-        # ensure table exists
-        Base.metadata.create_all(bind=get_session().get_bind())
-
-    def set_attendance(self, user_id, date, subject, status):
-        """
-        status: "P" for present, "A" for absent
-        """
+class AttendanceDB:
+    def set_attendance_percentage(self, user_id, subject, percent):
         session = get_session()
-        row = session.query(AttendanceDB).filter_by(
-            user_id=user_id, date=date, subject=subject
-        ).first()
+        try:
+            # Check if entry exists
+            row = session.query(ManualAttendance).filter_by(user_id=user_id, subject=subject).first()
+            if row:
+                row.percentage = percent
+            else:
+                new_entry = ManualAttendance(user_id=user_id, subject=subject, percentage=percent)
+                session.add(new_entry)
+            session.commit()
+        finally:
+            session.close()
 
-        if row:
-            row.status = status
-        else:
-            row = AttendanceDB()
-            row.user_id = user_id
-            row.date = date
-            row.subject = subject
-            row.status = status
-            session.add(row)
-
-        session.commit()
-
-    def get_subject_attendance(self, user_id):
-        """
-        Returns: list of (subject, present, total_classes)
-        """
-        session = get_session()
-        rows = session.query(AttendanceDB).filter_by(user_id=user_id).all()
-
-        stats = {}
-        for r in rows:
-            if r.subject not in stats:
-                stats[r.subject] = [0, 0]  # [present, total]
-            stats[r.subject][1] += 1
-            if r.status == "P":
-                stats[r.subject][0] += 1
-
-        # convert to list of tuples
-        return [(subj, p, t) for subj, (p, t) in stats.items()]
-
-    def get_attendance(self, user_id):
-        """
-        Wrapper for compatibility with app.py.
-        Same output as get_subject_attendance:
-        [(subject, present, total_classes), ...]
-        """
-        return self.get_subject_attendance(user_id)
-    
     def get_attendance_percent(self, user_id):
-     """
-    Returns {subject: percentage}
-    Example → {"DBMS": 82, "Math": 71, "DSA": 93}
-      """
-     rows = self.get_subject_attendance(user_id)  # [(subj, present, total)]
-     result = {}
-     for subj, present, total in rows:
-        pct = int((present / total) * 100) if total else 0
-        result[subj] = pct
-     return result
+        """
+        Returns dictionary: {'Math': 85.0, 'Science': 90.0}
+        """
+        session = get_session()
+        try:
+            rows = session.query(ManualAttendance).filter_by(user_id=user_id).all()
+            return {r.subject: r.percentage for r in rows}
+        finally:
+            session.close()

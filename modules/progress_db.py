@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, Date, Float, func
+from sqlalchemy import Column, Integer, String, Date, Float
 from sqlalchemy.orm import Session
 from db.session import Base, get_session
-
 
 class ProgressDB(Base):
     __tablename__ = "progress"
@@ -12,30 +11,34 @@ class ProgressDB(Base):
     date = Column(Date, nullable=False)
     score = Column(Float, nullable=False)
 
-
 class ProgressHelper:
     def __init__(self):
-        self.session: Session = get_session()
+        pass
 
     def add_entry(self, user_id, subject, date, score):
-        entry = ProgressDB(user_id=user_id, subject=subject, date=date, score=score)
-        self.session.add(entry)
-        self.session.commit()
+        session = get_session()
+        try:
+            entry = ProgressDB(user_id=user_id, subject=subject, date=date, score=score)
+            session.add(entry)
+            session.commit()
+        except:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def get_performance_since(self, user_id, since_date):
-        return (
-            self.session.query(ProgressDB.subject, ProgressDB.score)
-            .filter(ProgressDB.user_id == user_id, ProgressDB.date >= since_date)
-            .all()
-        )
+        session = get_session()
+        try:
+            return (
+                session.query(ProgressDB.subject, ProgressDB.score)
+                .filter(ProgressDB.user_id == user_id, ProgressDB.date >= since_date)
+                .all()
+            )
+        finally:
+            session.close()
 
-    # ✔️ Added missing function with correct table reference
-    def get_overall_performance(self, user_id):
-        sess = get_session()
-        rows = (
-            sess.query(ProgressDB.subject, func.avg(ProgressDB.score))
-            .filter(ProgressDB.user_id == user_id)
-            .group_by(ProgressDB.subject)
-            .all()
-        )
-        return [(subject, float(avg)) for subject, avg in rows]
+    def log_feedback(self, user_id, date, subject, hours, score):
+        # Log feedback as a score entry (100 = completed, 50 = half, 0 = not done)
+        numeric_score = score * 100
+        self.add_entry(user_id, subject, date, numeric_score)

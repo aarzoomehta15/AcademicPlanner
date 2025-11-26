@@ -13,18 +13,16 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-
 def get_session():
     return SessionLocal()
 
-
 def init_db():
-    # Import ALL models so Base.metadata knows them
-    from modules.users_db import UsersDB
+    # Import models
+    from modules.users_db import User
     from modules.subjects_db import SubjectsDB
     from modules.attendance_db import AttendanceDB
-    from modules.todo_db import ToDoDB
     from modules.timetable_db import TimetableDB
-    from modules.goals_db import GoalsDB
-    from modules.progress_db import ProgressDB   # 🔥 required
+    from modules.goals_db import GoalsDB, SubjectGoalDB
+    from modules.progress_db import ProgressDB
+    
     Base.metadata.create_all(bind=engine)

@@ -1,8 +1,8 @@
 from db.session import Base, get_session
 from sqlalchemy import Column, Integer, String
 
-
-class UsersDB(Base):
+# The User Model
+class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -11,38 +11,49 @@ class UsersDB(Base):
     email = Column(String, nullable=False)
     password = Column(String, nullable=False)
 
+# The Helper Class
+class UsersDB:
     def __init__(self):
-        Base.metadata.create_all(bind=get_session().get_bind())
+        session = get_session()
+        try:
+            Base.metadata.create_all(bind=session.get_bind())
+        finally:
+            session.close()
 
-    # REGISTER USER
     def register_user(self, name, username, email, password):
         session = get_session()
-        existing = session.query(UsersDB).filter(UsersDB.username == username).first()
-        if existing:
+        try:
+            existing = session.query(User).filter(User.username == username).first()
+            if existing:
+                return False
+
+            user = User(name=name, username=username, email=email, password=password)
+            session.add(user)
+            session.commit()
+            return True
+        except Exception as e:
+            session.rollback()
+            print(f"Error registering: {e}")
             return False
+        finally:
+            session.close()
 
-        user = UsersDB()
-        user.name = name
-        user.username = username
-        user.email = email
-        user.password = password
-        session.add(user)
-        session.commit()
-        return True
-
-    # LOGIN / AUTHENTICATE USER
     def authenticate_user(self, username, password):
         session = get_session()
-        user = session.query(UsersDB).filter(
-            UsersDB.username == username,
-            UsersDB.password == password
-        ).first()
-        if not user:
-            return None
+        try:
+            user = session.query(User).filter(
+                User.username == username,
+                User.password == password
+            ).first()
+            
+            if not user:
+                return None
 
-        return {
-            "id": user.id,
-            "name": user.name,
-            "username": user.username,
-            "email": user.email,
-        }
+            return {
+                "id": user.id,
+                "name": user.name,
+                "username": user.username,
+                "email": user.email,
+            }
+        finally:
+            session.close()

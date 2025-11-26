@@ -15,7 +15,7 @@ def main():
 
     # 1) Clean existing data (so we start fresh)
     #    If a table doesn't exist yet, ignore the error.
-    for table in ["todo", "progress", "timetable", "attendance", "subjects", "users"]:
+    for table in ["progress", "timetable", "attendance", "subjects", "users"]:
         try:
             cur.execute(f"DELETE FROM {table};")
         except sqlite3.OperationalError:
@@ -112,40 +112,7 @@ def main():
         # If the progress table schema is different, just skip.
         pass
 
-    # 7) To-Do tasks for last 30 days for user 1 only
-    #    Schema: todo(user_id, date, task_name, subject, duration, priority, status)
-    todo_rows = []
-    for days_ago in range(30):
-        dt = today - timedelta(days=days_ago)
-        dt_str = dt.strftime("%Y-%m-%d")
-
-        # 2–4 tasks per day
-        for _ in range(random.randint(2, 4)):
-            subj = random.choice(SUBJECTS + [None, None])  # some tasks without subject
-            if subj:
-                task_name = f"Study {subj}"
-            else:
-                task_name = random.choice(
-                    ["Gym", "Walk", "Read book", "Club meeting", "Watch lecture"]
-                )
-            duration = random.choice([30, 45, 60, 90])
-            priority = random.choice(["Low", "Medium", "High"])
-            status = random.choice(["pending", "half-done", "done"])
-            todo_rows.append(
-                (1, dt_str, task_name, subj, duration, priority, status)
-            )
-
-    try:
-        cur.executemany(
-            """
-            INSERT INTO todo(user_id, date, task_name, subject, duration, priority, status)
-            VALUES (?,?,?,?,?,?,?)
-            """,
-            todo_rows,
-        )
-    except sqlite3.OperationalError:
-        # If todo schema changed, adjust manually later.
-        pass
+    # To-Do table seeding removed (feature deprecated)
 
     conn.commit()
     conn.close()
